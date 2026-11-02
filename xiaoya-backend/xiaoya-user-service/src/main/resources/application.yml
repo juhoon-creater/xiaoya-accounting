@@ -1,0 +1,29 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: xiaoya-user-service
+
+  datasource:
+    password: ${DB_PASSWORD}
+
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+
+xiaoya:
+  jwt:
+    secret: ${XIAOYA_JWT_SECRET}
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+app:
+  id: xiaoya-user-service
+
+apollo:
+  meta: http://localhost:18080
+  bootstrap:
+    enabled: true
+    namespaces: application

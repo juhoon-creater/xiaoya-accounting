@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace 必须与 BudgetMapper.java 的完整包名一致。 -->
+<mapper namespace="com.xiaoya.accounting.mapper.BudgetMapper">
+
+    <!-- 把 SQL 查询结果列映射到 Java 查询结果对象的属性。 -->
+    <resultMap id="BudgetCategoryQueryResultMap"
+               type="com.xiaoya.accounting.dto.BudgetCategoryQueryResult">
+        <id property="categoryId" column="category_id"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="budgetAmount" column="budget_amount"/>
+        <result property="usedAmount" column="used_amount"/>
+    </resultMap>
+
+    <!-- 查询启用的支出分类，并关联当前用户该月的分类预算和实际支出。 -->
+    <select id="selectCategoryBudgetUsage"
+            resultMap="BudgetCategoryQueryResultMap">
+        SELECT
+        c.id AS category_id,
+        c.name AS category_name,
+        COALESCE(cb.amount, 0.00) AS budget_amount,
+        COALESCE(bu.used_amount, 0.00) AS used_amount
+        FROM categories c
+        LEFT JOIN (
+        SELECT
+        monthly_budget.user_id,
+        category_budget.category_id,
+        category_budget.amount
+        FROM monthly_budgets monthly_budget
+        INNER JOIN category_budgets category_budget
+        ON category_budget.monthly_budget_id = monthly_budget.id
+        WHERE monthly_budget.user_id = #{userId}
+        AND monthly_budget.budget_month = #{budgetMonth}
+        ) cb
+        ON cb.category_id = c.id
+        LEFT JOIN (
+        SELECT
+        bill.category_id,
+        SUM(bill.amount) AS used_amount
+        FROM bills bill
+        WHERE bill.user_id = #{userId}
+        AND bill.transaction_type = 'EXPENSE'
+        AND bill.transaction_date &gt;= #{startDate}
+        AND bill.transaction_date &lt; #{endDate}
+        GROUP BY bill.category_id
+        ) bu
+        ON bu.category_id = c.id
+        WHERE c.type = 'EXPENSE'
+        AND c.active = TRUE
+        ORDER BY c.sort_order ASC, c.id ASC
+    </select>
+
+    <!-- 查询该用户当月保存的总预算；没有月预算记录时返回 null。 -->
+    <select id="selectTotalBudgetAmount" resultType="java.math.BigDecimal">
+        SELECT total_amount
+        FROM monthly_budgets
+        WHERE user_id = #{userId}
+        AND budget_month = #{budgetMonth}
+    </select>
+
+    <!-- 汇总当前用户当月所有支出账单；没有账单时返回 0。 -->
+    <select id="selectTotalUsedAmount" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(amount), 0.00)
+        FROM bills
+        WHERE user_id = #{userId}
+        AND transaction_type = 'EXPENSE'
+        AND transaction_date &gt;= #{startDate}
+        AND transaction_date &lt; #{endDate}
+    </select>
+    <!-- 首次设置预算时创建月预算主记录；已存在时不重复创建。 -->
+    <insert id="insertMonthlyBudgetIfAbsent">
+        INSERT INTO monthly_budgets (
+        user_id,
+        budget_month,
+        total_amount
+        ) VALUES (
+        #{userId},
+        #{budgetMonth},
+        0.00
+        )
+        ON DUPLICATE KEY UPDATE id = id
+    </insert>
+
+    <!-- 根据当前用户和月份取得月预算主记录 ID。 -->
+    <select id="selectMonthlyBudgetId" resultType="java.lang.Long">
+        SELECT id
+        FROM monthly_budgets
+        WHERE user_id = #{userId}
+        AND budget_month = #{budgetMonth}
+    </select>
+
+    <!-- 插入分类预算；唯一键冲突时更新该分类的预算金额。 -->
+    <insert id="upsertCategoryBudget">
+        INSERT INTO category_budgets (
+        monthly_budget_id,
+        category_id,
+        amount
+        ) VALUES (
+        #{monthlyBudgetId},
+        #{categoryId},
+        #{amount}
+        )
+        ON DUPLICATE KEY UPDATE amount = #{amount}
+    </insert>
+
+    <!-- 重新汇总分类预算明细，并同步更新月预算主表的总预算。 -->
+    <update id="updateMonthlyTotalAmount">
+        UPDATE monthly_budgets
+        SET total_amount = (
+        SELECT COALESCE(SUM(amount), 0.00)
+        FROM category_budgets
+        WHERE monthly_budget_id = #{monthlyBudgetId}
+        )
+        WHERE id = #{monthlyBudgetId}
+    </update>
+    <!-- 清除指定月份、指定分类的预算明细；不删除账单。 -->
+    <delete id="deleteCategoryBudget">
+        DELETE FROM category_budgets
+        WHERE monthly_budget_id = #{monthlyBudgetId}
+        AND category_id = #{categoryId}
+    </delete>
+
+</mapper>

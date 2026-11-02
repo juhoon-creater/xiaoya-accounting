@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- namespace 必须与 StatisticsMapper.java 的完整包名一致。 -->
+<mapper namespace="com.xiaoya.accounting.mapper.StatisticsMapper">
+
+    <!-- 将月度汇总 SQL 列映射到内部查询结果对象。 -->
+    <resultMap id="MonthlyStatisticsQueryResultMap"
+               type="com.xiaoya.accounting.dto.MonthlyStatisticsQueryResult">
+        <result property="totalIncome" column="total_income"/>
+        <result property="totalExpense" column="total_expense"/>
+        <result property="billCount" column="bill_count"/>
+    </resultMap>
+
+    <!-- 将分类支出 SQL 列映射到内部查询结果对象。 -->
+    <resultMap id="ExpenseCategoryQueryResultMap"
+               type="com.xiaoya.accounting.dto.ExpenseCategoryQueryResult">
+        <id property="categoryId" column="category_id"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="amount" column="amount"/>
+    </resultMap>
+
+    <!-- 汇总当前用户指定月份的收入、支出和账单数量。 -->
+    <select id="selectMonthlySummary"
+            resultMap="MonthlyStatisticsQueryResultMap">
+        SELECT
+        COALESCE(
+        SUM(CASE WHEN transaction_type = 'INCOME' THEN amount ELSE 0 END),
+        0.00
+        ) AS total_income,
+        COALESCE(
+        SUM(CASE WHEN transaction_type = 'EXPENSE' THEN amount ELSE 0 END),
+        0.00
+        ) AS total_expense,
+        COUNT(*) AS bill_count
+        FROM bills
+        WHERE user_id = #{userId}
+        AND transaction_date &gt;= #{startDate}
+        AND transaction_date &lt; #{endDate}
+    </select>
+
+    <!-- 汇总当前用户指定月份各支出分类金额，只返回有支出的分类。 -->
+    <select id="selectExpenseByCategory"
+            resultMap="ExpenseCategoryQueryResultMap">
+        SELECT
+        c.id AS category_id,
+        c.name AS category_name,
+        SUM(b.amount) AS amount
+        FROM bills b
+        INNER JOIN categories c ON c.id = b.category_id
+        WHERE b.user_id = #{userId}
+        AND b.transaction_type = 'EXPENSE'
+        AND b.transaction_date &gt;= #{startDate}
+        AND b.transaction_date &lt; #{endDate}
+        GROUP BY c.id, c.name
+        ORDER BY amount DESC, c.id ASC
+    </select>
+
+</mapper>

@@ -1,0 +1,29 @@
+server:
+  port: 8082
+
+
+spring:
+  application:
+    name: xiaoya-accounting-service
+  datasource:
+    password: ${DB_PASSWORD}
+
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+# MyBatis 配置
+mybatis:
+  # 加载 resources/mapper 目录下的 Mapper XML 文件
+  mapper-locations: classpath:/mapper/*.xml
+  configuration:
+    # 支持把数据库的下划线字段名映射到 Java 驼峰属性名
+    map-underscore-to-camel-case: true
+app:
+  id: xiaoya-accounting-service
+
+apollo:
+  meta: http://localhost:18080
+  bootstrap:
+    enabled: true
+    namespaces: application

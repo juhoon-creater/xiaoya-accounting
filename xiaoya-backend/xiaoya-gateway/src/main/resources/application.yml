@@ -1,0 +1,59 @@
+server:
+  port: 8080
+
+
+
+spring:
+  application:
+    name: xiaoya-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: user-service-route
+          uri: lb://xiaoya-user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - StripPrefix=1
+
+        - id: accounting-category-route
+          uri: lb://xiaoya-accounting-service
+          predicates:
+            - Path=/api/categories
+          filters:
+            - StripPrefix=1
+
+        - id: accounting-service-route
+          uri: lb://xiaoya-accounting-service
+          predicates:
+            - Path=/api/accounting/**
+        - id: accounting-bill-route
+          uri: lb://xiaoya-accounting-service
+          predicates:
+            - Path=/api/bills/**
+          filters:
+            - StripPrefix=1
+        - id: accounting-budget-route
+          uri: lb://xiaoya-accounting-service
+          predicates:
+            - Path=/api/budgets/**
+          filters:
+            - StripPrefix=1
+        - id: accounting-statistics-route
+          uri: lb://xiaoya-accounting-service
+          predicates:
+            - Path=/api/statistics/**
+          filters:
+            - StripPrefix=1
+
+xiaoya:
+  jwt:
+    secret: ${XIAOYA_JWT_SECRET}
+app:
+  id: xiaoya-gateway
+
+apollo:
+  meta: http://localhost:18080
+  bootstrap:
+    enabled: true
+    namespaces: application

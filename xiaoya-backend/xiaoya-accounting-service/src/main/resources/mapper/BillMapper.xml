@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.xiaoya.accounting.mapper.BillMapper">
+
+    <!-- 把账单表的列映射到 Bill 实体属性。 -->
+    <resultMap id="BillResultMap" type="com.xiaoya.accounting.entity.Bill">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="transactionType" column="transaction_type"/>
+        <result property="amount" column="amount"/>
+        <result property="transactionDate" column="transaction_date"/>
+        <result property="remark" column="remark"/>
+        <result property="mood" column="mood"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 插入账单；主键由数据库生成并回填到 bill.id。 -->
+    <insert id="insert"
+            parameterType="com.xiaoya.accounting.entity.Bill"
+            useGeneratedKeys="true"
+            keyProperty="id"
+            keyColumn="id">
+        INSERT INTO bills (
+        user_id,
+        category_id,
+        transaction_type,
+        amount,
+        transaction_date,
+        remark,
+        mood
+        ) VALUES (
+        #{userId},
+        #{categoryId},
+        #{transactionType},
+        #{amount},
+        #{transactionDate},
+        #{remark},
+        #{mood}
+        )
+    </insert>
+
+    <!-- 查询时同时限制账单 ID 和所属用户 ID。 -->
+    <select id="selectByIdAndUserId" resultMap="BillResultMap">
+        SELECT
+        id,
+        user_id,
+        category_id,
+        transaction_type,
+        amount,
+        transaction_date,
+        remark,
+        mood,
+        created_at,
+        updated_at
+        FROM bills
+        WHERE id = #{id}
+        AND user_id = #{userId}
+    </select>
+    <!-- 映射账单及其关联分类名称。 -->
+    <resultMap id="BillQueryResultMap"
+               type="com.xiaoya.accounting.dto.BillQueryResult">
+        <id property="id" column="id"/>
+        <result property="transactionType" column="transaction_type"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="amount" column="amount"/>
+        <result property="transactionDate" column="transaction_date"/>
+        <result property="remark" column="remark"/>
+        <result property="mood" column="mood"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 用户 ID 条件始终生效，可选筛选条件只在传入时加入。 -->
+    <select id="selectPageByCondition" resultMap="BillQueryResultMap">
+        SELECT
+        b.id,
+        b.transaction_type,
+        b.category_id,
+        c.name AS category_name,
+        b.amount,
+        b.transaction_date,
+        b.remark,
+        b.mood,
+        b.created_at,
+        b.updated_at
+        FROM bills b
+        INNER JOIN categories c ON c.id = b.category_id
+        WHERE b.user_id = #{userId}
+        <if test="startDate != null">
+            AND b.transaction_date &gt;= #{startDate}
+        </if>
+        <if test="endDate != null">
+            AND b.transaction_date &lt; #{endDate}
+        </if>
+        <if test="transactionType != null">
+            AND b.transaction_type = #{transactionType}
+        </if>
+        <if test="categoryId != null">
+            AND b.category_id = #{categoryId}
+        </if>
+        ORDER BY b.transaction_date DESC, b.id DESC
+    </select>
+    <!-- 按账单 ID 和用户 ID 查询详情，并关联分类名称。 -->
+    <select id="selectDetailByIdAndUserId"
+            resultMap="BillQueryResultMap">
+        SELECT
+        b.id,
+        b.transaction_type,
+        b.category_id,
+        c.name AS category_name,
+        b.amount,
+        b.transaction_date,
+        b.remark,
+        b.mood,
+        b.created_at,
+        b.updated_at
+        FROM bills b
+        INNER JOIN categories c ON c.id = b.category_id
+        WHERE b.id = #{id}
+        AND b.user_id = #{userId}
+    </select>
+    <!-- 只更新当前用户自己的账单，不修改所属用户 ID。 -->
+    <update id="updateByIdAndUserId"
+            parameterType="map">
+        UPDATE bills
+        SET
+        category_id = #{bill.categoryId},
+        transaction_type = #{bill.transactionType},
+        amount = #{bill.amount},
+        transaction_date = #{bill.transactionDate},
+        remark = #{bill.remark},
+        mood = #{bill.mood}
+        WHERE id = #{bill.id}
+        AND user_id = #{bill.userId}
+    </update>
+    <!-- 仅删除当前用户自己的账单；第一版采用物理删除。 -->
+    <delete id="deleteByIdAndUserId">
+        DELETE FROM bills
+        WHERE id = #{id}
+        AND user_id = #{userId}
+    </delete>
+
+</mapper>

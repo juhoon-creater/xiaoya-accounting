@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.xiaoya.accounting.mapper.CategoryMapper">
+
+    <!-- 把数据库列明确映射到 Category 的 Java 属性。 -->
+    <resultMap id="CategoryResultMap" type="com.xiaoya.accounting.entity.Category">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="type" column="type"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="active" column="active"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <!-- 只查询指定收支类型且已启用的分类，并按显示顺序排列。 -->
+    <!-- type 有值时按类型筛选；未传 type 时查询全部启用分类。 -->
+    <select id="selectByType"
+            parameterType="string"
+            resultMap="CategoryResultMap">
+        SELECT
+        id,
+        name,
+        type,
+        sort_order,
+        active,
+        created_at,
+        updated_at
+        FROM categories
+        <where>
+            <if test="type != null">
+                AND type = #{type}
+            </if>
+            AND active = 1
+        </where>
+        ORDER BY sort_order ASC, id ASC
+    </select>
+    <!-- 按 ID 查询启用的分类；不存在或已停用时查询结果为空。 -->
+    <select id="selectActiveById"
+            parameterType="long"
+            resultMap="CategoryResultMap">
+        SELECT
+        id,
+        name,
+        type,
+        sort_order,
+        active,
+        created_at,
+        updated_at
+        FROM categories
+        WHERE id = #{id}
+        AND active = 1
+    </select>
+
+</mapper>
